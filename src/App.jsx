@@ -1,10 +1,20 @@
+import Cards from "./components/Cards"
+import Carrousel from "./components/Carrousel"
+import Footer from "./components/Footer"
+import Nav from "./components/Nav"
 
 
 function App() {
 
   return (
     <>
-      <h1>Peliculas Pascualinas</h1>
+      <Nav />
+      <Carrousel />
+      <main class="container">
+        <h3>Peliculas Pascual B</h3>
+        <Cards />
+        <Footer />
+      </main>
     </>
   )
 }
