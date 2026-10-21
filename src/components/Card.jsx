@@ -1,11 +1,11 @@
 function Card() {
     return (
-        <div class="col">
-            <div class="card">
-              <img src="/src/assets/images/1.webp" class="card-img-top" alt="..." />
-                <div class="card-body">
-                  <h5 class="card-title">Hasta el fin del mundo</h5>
-                  <p class="card-text">Pelìcula romàntica</p>
+        <div className="col">
+            <div className="card">
+              <img src="/src/assets/images/1.webp" className="card-img-top" alt="..." />
+                <div className="card-body">
+                  <h5 className="card-title">Hasta el fin del mundo</h5>
+                  <p className="card-text">Pelìcula romàntica</p>
                 </div>
             </div>
        </div>

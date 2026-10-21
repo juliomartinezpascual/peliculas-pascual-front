@@ -2,16 +2,16 @@ import Cards from "./components/Cards"
 import Carrousel from "./components/Carrousel"
 import Footer from "./components/Footer"
 import Nav from "./components/Nav"
+import PublicRouters from "./routers/PublicRouters"
 
 
 function App() {
-
   return (
     <>
       <Nav />
       <Carrousel />
-      <main class="container">
-        <h3>Peliculas Pascual B</h3>
+      <main className="container">
+        <PublicRouters />
         <Cards />
         <Footer />
       </main>
