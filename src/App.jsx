@@ -3,6 +3,7 @@ import Carrousel from "./components/Carrousel"
 import Footer from "./components/Footer"
 import Nav from "./components/Nav"
 import PublicRouters from "./routers/PublicRouters"
+import PrivateRouters from "./routers/PrivateRouters"
 
 
 function App() {
@@ -12,6 +13,7 @@ function App() {
       <Carrousel />
       <main className="container">
         <PublicRouters />
+        <PrivateRouters />
         <Cards />
         <Footer />
       </main>

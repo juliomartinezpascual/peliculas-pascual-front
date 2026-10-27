@@ -23,19 +23,44 @@ function Nav() {
                 Explorar
               </a>
               <ul className="dropdown-menu">
-                <Link to="/movies" className="nav-item nav-link">
-                   Peliculas
+                <Link to="/movies" className="dropdown-item">
+                   Películas
                 </Link>
-                <Link to="/action" className="nav-item nav-link">
-                   Acciòn
+                <Link to="/action" className="dropdown-item">
+                   Acción
                 </Link>
                 <li>
                   <hr className="dropdown-divider" />
                 </li>
-                <Link to="/series" className="nav-item nav-link">
+                <Link to="/series" className="dropdown-item">
                    Series
                 </Link>
-    
+              </ul>
+            </li>
+            <li className="nav-item dropdown">
+              <a className="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown"
+                aria-expanded="false">
+                <i className="bi bi-gear-fill me-1"></i> Administración
+              </a>
+              <ul className="dropdown-menu">
+                <Link to="/generos" className="dropdown-item">
+                  <i className="bi bi-tags me-2"></i> Géneros
+                </Link>
+                <Link to="/directores" className="dropdown-item">
+                  <i className="bi bi-person-video2 me-2"></i> Directores
+                </Link>
+                <Link to="/productoras" className="dropdown-item">
+                  <i className="bi bi-building me-2"></i> Productoras
+                </Link>
+                <Link to="/tipos" className="dropdown-item">
+                  <i className="bi bi-collection-play me-2"></i> Tipos
+                </Link>
+                <li>
+                  <hr className="dropdown-divider" />
+                </li>
+                <Link to="/media" className="dropdown-item">
+                  <i className="bi bi-film me-2"></i> Media
+                </Link>
               </ul>
             </li>
           </ul>
