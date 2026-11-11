@@ -1,103 +1,102 @@
 import { useState, useEffect } from "react";
-
-const STORAGE_KEY = "pelis_pascual_generos";
-
-const INITIAL_GENEROS = [
-    {
-        id: 1,
-        nombre: "Acción",
-        estado: "Activo",
-        descripcion: "Películas con alto impacto, persecuciones, combates y ritmo acelerado.",
-        fechaCreacion: "2026-01-10 10:00:00",
-        fechaActualizacion: "2026-01-10 10:00:00"
-    },
-    {
-        id: 2,
-        nombre: "Aventura",
-        estado: "Activo",
-        descripcion: "Historias con viajes, exploraciones y situaciones heroicas en lugares exóticos.",
-        fechaCreacion: "2026-01-10 10:15:00",
-        fechaActualizacion: "2026-01-10 10:15:00"
-    },
-    {
-        id: 3,
-        nombre: "Ciencia Ficción",
-        estado: "Activo",
-        descripcion: "Narrativas basadas en futuros posibles, ciencia, tecnología, el espacio o universos paralelos.",
-        fechaCreacion: "2026-01-10 10:30:00",
-        fechaActualizacion: "2026-01-10 10:30:00"
-    },
-    {
-        id: 4,
-        nombre: "Drama",
-        estado: "Activo",
-        descripcion: "Enfoque en el desarrollo de personajes y situaciones realistas de conflicto emocional o moral.",
-        fechaCreacion: "2026-01-10 10:45:00",
-        fechaActualizacion: "2026-01-10 10:45:00"
-    },
-    {
-        id: 5,
-        nombre: "Terror",
-        estado: "Activo",
-        descripcion: "Producciones diseñadas para provocar miedo, suspenso, tensión o sobresalto.",
-        fechaCreacion: "2026-01-10 11:00:00",
-        fechaActualizacion: "2026-01-10 11:00:00"
-    }
-];
+import {
+    listarGeneros,
+    crearGenero,
+    actualizarGenero,
+    cambiarEstadoGenero,
+    eliminarGenero
+} from "../services/generosService";
 
 const FORM_INITIAL_STATE = {
     nombre: "",
-    estado: "Activo",
+    estado: true,
     descripcion: ""
 };
 
-export default function Generos() {
-    const [generos, setGeneros] = useState(() => {
-        try {
-            const saved = localStorage.getItem(STORAGE_KEY);
-            if (saved) {
-                const parsed = JSON.parse(saved);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                    return parsed;
-                }
-            }
-        } catch (error) {
-            console.error("Error al leer géneros de localStorage:", error);
-        }
-        return INITIAL_GENEROS;
+function formatDate(value) {
+    if (!value) return "—";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleString("es-CO", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit"
     });
+}
 
-    // Guardar en localStorage cada vez que la lista de géneros cambie
-    useEffect(() => {
-        try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(generos));
-        } catch (error) {
-            console.error("Error al guardar géneros en localStorage:", error);
+function closeGeneroModal() {
+    const modalElement = document.getElementById("generoModal");
+    if (modalElement && window.bootstrap) {
+        const modalInstance = window.bootstrap.Modal.getInstance(modalElement);
+        if (modalInstance) {
+            modalInstance.hide();
         }
-    }, [generos]);
+    }
+}
 
+export default function Generos() {
+    const [generos, setGeneros] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState("");
     const [formData, setFormData] = useState(FORM_INITIAL_STATE);
     const [editingId, setEditingId] = useState(null);
     const [error, setError] = useState("");
+    const [saving, setSaving] = useState(false);
+    const [actionId, setActionId] = useState(null);
     const [filtroTexto, setFiltroTexto] = useState("");
     const [filtroEstado, setFiltroEstado] = useState("Todos");
 
-    const formatCurrentDate = () => {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, "0");
-        const day = String(now.getDate()).padStart(2, "0");
-        const hours = String(now.getHours()).padStart(2, "0");
-        const minutes = String(now.getMinutes()).padStart(2, "0");
-        const seconds = String(now.getSeconds()).padStart(2, "0");
-        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-    };
+    async function cargarGeneros() {
+        setLoading(true);
+        setLoadError("");
+        try {
+            const data = await listarGeneros();
+            setGeneros(Array.isArray(data) ? data : []);
+        } catch (err) {
+            setLoadError(err.message || "Error al listar géneros");
+            setGeneros([]);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    useEffect(() => {
+        let cancelled = false;
+
+        async function init() {
+            setLoading(true);
+            setLoadError("");
+            try {
+                const data = await listarGeneros();
+                if (!cancelled) {
+                    setGeneros(Array.isArray(data) ? data : []);
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setLoadError(err.message || "Error al listar géneros");
+                    setGeneros([]);
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoading(false);
+                }
+            }
+        }
+
+        init();
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData((prev) => ({
             ...prev,
-            [name]: value
+            [name]: name === "estado" ? value === "true" : value
         }));
     };
 
@@ -108,106 +107,121 @@ export default function Generos() {
     };
 
     const handleOpenEditModal = (genero) => {
-        setEditingId(genero.id);
+        setEditingId(genero._id);
         setFormData({
             nombre: genero.nombre,
-            estado: genero.estado,
-            descripcion: genero.descripcion
+            estado: Boolean(genero.estado),
+            descripcion: genero.descripcion || ""
         });
         setError("");
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
         const trimmedNombre = formData.nombre.trim();
+        const trimmedDescripcion = formData.descripcion.trim();
 
         if (!trimmedNombre) {
             setError("El nombre del género es obligatorio.");
             return;
         }
 
-        // Validar nombre único (ignorando mayúsculas/minúsculas)
-        const yaExiste = generos.some(
-            (g) => g.nombre.toLowerCase() === trimmedNombre.toLowerCase() && g.id !== editingId
-        );
-
-        if (yaExiste) {
-            setError("Ya existe un género registrado con este nombre.");
+        if (trimmedNombre.length < 2) {
+            setError("El nombre debe tener al menos 2 caracteres.");
             return;
         }
 
-        const now = formatCurrentDate();
+        const payload = {
+            nombre: trimmedNombre,
+            estado: Boolean(formData.estado),
+            descripcion: trimmedDescripcion
+        };
 
-        if (editingId) {
-            // Actualizar género
-            setGeneros((prev) =>
-                prev.map((g) =>
-                    g.id === editingId
-                        ? {
-                              ...g,
-                              nombre: trimmedNombre,
-                              estado: formData.estado,
-                              descripcion: formData.descripcion.trim(),
-                              fechaActualizacion: now
-                          }
-                        : g
-                )
-            );
-        } else {
-            // Crear nuevo género
-            const nuevoGenero = {
-                id: Date.now(),
-                nombre: trimmedNombre,
-                estado: formData.estado,
-                descripcion: formData.descripcion.trim(),
-                fechaCreacion: now,
-                fechaActualizacion: now
-            };
-            setGeneros((prev) => [...prev, nuevoGenero]);
-        }
-
-        // Reset
-        setFormData(FORM_INITIAL_STATE);
-        setEditingId(null);
+        setSaving(true);
         setError("");
 
-        // Cerrar modal de Bootstrap programáticamente si existe
-        const modalElement = document.getElementById("generoModal");
-        if (modalElement && window.bootstrap) {
-            const modalInstance = window.bootstrap.Modal.getInstance(modalElement);
-            if (modalInstance) {
-                modalInstance.hide();
+        try {
+            if (editingId) {
+                const actualizado = await actualizarGenero(editingId, payload);
+                if (actualizado?._id) {
+                    setGeneros((prev) =>
+                        prev.map((g) => (g._id === editingId ? actualizado : g))
+                    );
+                } else {
+                    await cargarGeneros();
+                }
+            } else {
+                const creado = await crearGenero(payload);
+                if (creado?._id) {
+                    setGeneros((prev) => [...prev, creado]);
+                } else {
+                    await cargarGeneros();
+                }
             }
+
+            setFormData(FORM_INITIAL_STATE);
+            setEditingId(null);
+            closeGeneroModal();
+        } catch (err) {
+            setError(err.message || "Error al guardar el género");
+        } finally {
+            setSaving(false);
         }
     };
 
-    const handleToggleEstado = (id) => {
-        const now = formatCurrentDate();
-        setGeneros((prev) =>
-            prev.map((g) =>
-                g.id === id
-                    ? {
-                          ...g,
-                          estado: g.estado === "Activo" ? "Inactivo" : "Activo",
-                          fechaActualizacion: now
-                      }
-                    : g
-            )
-        );
+    const handleToggleEstado = async (genero) => {
+        setActionId(genero._id);
+        try {
+            const actualizado = await cambiarEstadoGenero(genero._id, !genero.estado);
+            if (actualizado?._id) {
+                setGeneros((prev) =>
+                    prev.map((g) => (g._id === genero._id ? actualizado : g))
+                );
+            } else {
+                await cargarGeneros();
+            }
+        } catch (err) {
+            setLoadError(err.message || "Error al cambiar el estado");
+        } finally {
+            setActionId(null);
+        }
     };
 
-    // Filtros
+    const handleEliminar = async (genero) => {
+        const confirmar = window.confirm(
+            `¿Eliminar el género "${genero.nombre}"? Esta acción no se puede deshacer.`
+        );
+        if (!confirmar) return;
+
+        setActionId(genero._id);
+        try {
+            // API responde 204 sin body — no hay JSON que parsear
+            await eliminarGenero(genero._id);
+            setGeneros((prev) => prev.filter((g) => g._id !== genero._id));
+        } catch (err) {
+            setLoadError(err.message || "Error al eliminar el género");
+        } finally {
+            setActionId(null);
+        }
+    };
+
     const generosFiltrados = generos.filter((g) => {
+        if (!g || !g.nombre) return false;
+        const texto = filtroTexto.toLowerCase();
         const coincideTexto =
-            g.nombre.toLowerCase().includes(filtroTexto.toLowerCase()) ||
-            g.descripcion.toLowerCase().includes(filtroTexto.toLowerCase());
-        const coincideEstado = filtroEstado === "Todos" || g.estado === filtroEstado;
+            g.nombre.toLowerCase().includes(texto) ||
+            (g.descripcion || "").toLowerCase().includes(texto);
+
+        const coincideEstado =
+            filtroEstado === "Todos" ||
+            (filtroEstado === "Activo" && g.estado === true) ||
+            (filtroEstado === "Inactivo" && g.estado === false);
+
         return coincideTexto && coincideEstado;
     });
 
     return (
         <div className="py-4">
-            {/* Header del Módulo */}
             <div className="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-2">
                 <div>
                     <h2 className="mb-1 text-primary">
@@ -217,18 +231,49 @@ export default function Generos() {
                         Administración, registro y edición de géneros cinematográficos para la aplicación.
                     </p>
                 </div>
-                <button
-                    type="button"
-                    className="btn btn-primary d-flex align-items-center gap-2"
-                    data-bs-toggle="modal"
-                    data-bs-target="#generoModal"
-                    onClick={handleOpenCreateModal}
-                >
-                    <i className="bi bi-plus-circle"></i> Nuevo Género
-                </button>
+                <div className="d-flex gap-2">
+                    <button
+                        type="button"
+                        className="btn btn-outline-secondary d-flex align-items-center gap-2"
+                        onClick={cargarGeneros}
+                        disabled={loading}
+                        title="Recargar lista"
+                    >
+                        <i className={`bi bi-arrow-clockwise ${loading ? "spinner-border spinner-border-sm" : ""}`}></i>
+                        Recargar
+                    </button>
+                    <button
+                        type="button"
+                        className="btn btn-primary d-flex align-items-center gap-2"
+                        data-bs-toggle="modal"
+                        data-bs-target="#generoModal"
+                        onClick={handleOpenCreateModal}
+                    >
+                        <i className="bi bi-plus-circle"></i> Nuevo Género
+                    </button>
+                </div>
             </div>
 
-            {/* Panel de Filtros y Búsqueda */}
+            {loadError && (
+                <div className="alert alert-danger d-flex align-items-center justify-content-between" role="alert">
+                    <div className="d-flex align-items-center">
+                        <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                        <div>
+                            <strong>{loadError}</strong>
+                            <div className="small mt-1">
+                                Backend: {import.meta.env.VITE_API_URL || "http://localhost:5000"}
+                            </div>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        className="btn-close"
+                        aria-label="Cerrar"
+                        onClick={() => setLoadError("")}
+                    ></button>
+                </div>
+            )}
+
             <div className="card shadow-sm border-0 mb-4 bg-light">
                 <div className="card-body">
                     <div className="row g-3 align-items-center">
@@ -269,7 +314,6 @@ export default function Generos() {
                 </div>
             </div>
 
-            {/* Tabla de Géneros */}
             <div className="card shadow-sm border-0">
                 <div className="table-responsive">
                     <table className="table table-hover align-middle mb-0">
@@ -281,11 +325,20 @@ export default function Generos() {
                                 <th scope="col" style={{ width: "120px" }}>Estado</th>
                                 <th scope="col" style={{ width: "170px" }}>Fecha Creación</th>
                                 <th scope="col" style={{ width: "170px" }}>Fecha Actualización</th>
-                                <th scope="col" className="text-end" style={{ width: "140px" }}>Acciones</th>
+                                <th scope="col" className="text-end" style={{ width: "160px" }}>Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {generosFiltrados.length === 0 ? (
+                            {loading ? (
+                                <tr>
+                                    <td colSpan="7" className="text-center py-5 text-muted">
+                                        <div className="spinner-border text-primary mb-2" role="status">
+                                            <span className="visually-hidden">Cargando...</span>
+                                        </div>
+                                        <div>Cargando géneros...</div>
+                                    </td>
+                                </tr>
+                            ) : generosFiltrados.length === 0 ? (
                                 <tr>
                                     <td colSpan="7" className="text-center py-5 text-muted">
                                         <i className="bi bi-inbox fs-2 d-block mb-2"></i>
@@ -293,82 +346,101 @@ export default function Generos() {
                                     </td>
                                 </tr>
                             ) : (
-                                generosFiltrados.map((item, index) => (
-                                    <tr key={item.id}>
-                                        <td className="text-muted fw-bold">{index + 1}</td>
-                                        <td>
-                                            <span className="fw-semibold text-dark">{item.nombre}</span>
-                                        </td>
-                                        <td>
-                                            <span className="text-secondary small">
-                                                {item.descripcion || <em className="text-muted">Sin descripción</em>}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span
-                                                className={`badge rounded-pill ${
-                                                    item.estado === "Activo"
-                                                        ? "bg-success-subtle text-success border border-success"
-                                                        : "bg-secondary-subtle text-secondary border border-secondary"
-                                                }`}
-                                            >
-                                                {item.estado === "Activo" ? (
-                                                    <i className="bi bi-check-circle me-1"></i>
-                                                ) : (
-                                                    <i className="bi bi-dash-circle me-1"></i>
-                                                )}
-                                                {item.estado}
-                                            </span>
-                                        </td>
-                                        <td className="small text-muted">
-                                            <i className="bi bi-calendar-event me-1"></i>
-                                            {item.fechaCreacion}
-                                        </td>
-                                        <td className="small text-muted">
-                                            <i className="bi bi-clock-history me-1"></i>
-                                            {item.fechaActualizacion}
-                                        </td>
-                                        <td className="text-end">
-                                            <div className="btn-group btn-group-sm" role="group">
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-outline-primary"
-                                                    title="Editar Género"
-                                                    data-bs-toggle="modal"
-                                                    data-bs-target="#generoModal"
-                                                    onClick={() => handleOpenEditModal(item)}
-                                                >
-                                                    <i className="bi bi-pencil-square"></i>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className={`btn ${
-                                                        item.estado === "Activo"
-                                                            ? "btn-outline-warning"
-                                                            : "btn-outline-success"
+                                generosFiltrados.map((item, index) => {
+                                    const busy = actionId === item._id;
+                                    return (
+                                        <tr key={item._id}>
+                                            <td className="text-muted fw-bold">{index + 1}</td>
+                                            <td>
+                                                <span className="fw-semibold text-dark">{item.nombre}</span>
+                                            </td>
+                                            <td>
+                                                <span className="text-secondary small">
+                                                    {item.descripcion || (
+                                                        <em className="text-muted">Sin descripción</em>
+                                                    )}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <span
+                                                    className={`badge rounded-pill ${
+                                                        item.estado
+                                                            ? "bg-success-subtle text-success border border-success"
+                                                            : "bg-secondary-subtle text-secondary border border-secondary"
                                                     }`}
-                                                    title={item.estado === "Activo" ? "Desactivar" : "Activar"}
-                                                    onClick={() => handleToggleEstado(item.id)}
                                                 >
-                                                    <i
-                                                        className={`bi ${
-                                                            item.estado === "Activo"
-                                                                ? "bi-toggle-on"
-                                                                : "bi-toggle-off"
+                                                    {item.estado ? (
+                                                        <i className="bi bi-check-circle me-1"></i>
+                                                    ) : (
+                                                        <i className="bi bi-dash-circle me-1"></i>
+                                                    )}
+                                                    {item.estado ? "Activo" : "Inactivo"}
+                                                </span>
+                                            </td>
+                                            <td className="small text-muted">
+                                                <i className="bi bi-calendar-event me-1"></i>
+                                                {formatDate(item.fechaCreacion)}
+                                            </td>
+                                            <td className="small text-muted">
+                                                <i className="bi bi-clock-history me-1"></i>
+                                                {formatDate(item.fechaActualizacion)}
+                                            </td>
+                                            <td className="text-end">
+                                                <div className="btn-group btn-group-sm" role="group">
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-outline-primary"
+                                                        title="Editar Género"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#generoModal"
+                                                        onClick={() => handleOpenEditModal(item)}
+                                                        disabled={busy}
+                                                    >
+                                                        <i className="bi bi-pencil-square"></i>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className={`btn ${
+                                                            item.estado
+                                                                ? "btn-outline-warning"
+                                                                : "btn-outline-success"
                                                         }`}
-                                                    ></i>
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
+                                                        title={item.estado ? "Desactivar" : "Activar"}
+                                                        onClick={() => handleToggleEstado(item)}
+                                                        disabled={busy}
+                                                    >
+                                                        {busy ? (
+                                                            <span className="spinner-border spinner-border-sm"></span>
+                                                        ) : (
+                                                            <i
+                                                                className={`bi ${
+                                                                    item.estado
+                                                                        ? "bi-toggle-on"
+                                                                        : "bi-toggle-off"
+                                                                }`}
+                                                            ></i>
+                                                        )}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-outline-danger"
+                                                        title="Eliminar Género"
+                                                        onClick={() => handleEliminar(item)}
+                                                        disabled={busy}
+                                                    >
+                                                        <i className="bi bi-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
                             )}
                         </tbody>
                     </table>
                 </div>
             </div>
 
-            {/* Modal de Registro / Edición */}
             <div
                 className="modal fade"
                 id="generoModal"
@@ -381,21 +453,28 @@ export default function Generos() {
                         <form onSubmit={handleSubmit}>
                             <div className="modal-header">
                                 <h5 className="modal-title" id="generoModalLabel">
-                                    <i className={`bi ${editingId ? "bi-pencil-square" : "bi-plus-circle"} me-2 text-primary`}></i>
+                                    <i
+                                        className={`bi ${
+                                            editingId ? "bi-pencil-square" : "bi-plus-circle"
+                                        } me-2 text-primary`}
+                                    ></i>
                                     {editingId ? "Editar Género" : "Registrar Nuevo Género"}
                                 </h5>
                                 <button
                                     type="button"
                                     className="btn-close"
-                                    data-bs-toggle="modal"
-                                    data-bs-target="#generoModal"
+                                    data-bs-dismiss="modal"
                                     aria-label="Cerrar"
+                                    disabled={saving}
                                 ></button>
                             </div>
 
                             <div className="modal-body">
                                 {error && (
-                                    <div className="alert alert-danger d-flex align-items-center py-2" role="alert">
+                                    <div
+                                        className="alert alert-danger d-flex align-items-center py-2"
+                                        role="alert"
+                                    >
                                         <i className="bi bi-exclamation-triangle-fill me-2"></i>
                                         <div>{error}</div>
                                     </div>
@@ -414,9 +493,11 @@ export default function Generos() {
                                         value={formData.nombre}
                                         onChange={handleChange}
                                         required
+                                        minLength={2}
+                                        disabled={saving}
                                     />
                                     <div className="form-text">
-                                        Debe ser un nombre descriptivo y único.
+                                        Debe ser un nombre descriptivo y único (mín. 2 caracteres).
                                     </div>
                                 </div>
 
@@ -428,15 +509,17 @@ export default function Generos() {
                                         className="form-select"
                                         id="estado"
                                         name="estado"
-                                        value={formData.estado}
+                                        value={String(formData.estado)}
                                         onChange={handleChange}
                                         required
+                                        disabled={saving}
                                     >
-                                        <option value="Activo">Activo</option>
-                                        <option value="Inactivo">Inactivo</option>
+                                        <option value="true">Activo</option>
+                                        <option value="false">Inactivo</option>
                                     </select>
                                     <div className="form-text">
-                                        Los géneros activos estarán disponibles para clasificar películas y series.
+                                        Los géneros activos estarán disponibles para clasificar
+                                        películas y series.
                                     </div>
                                 </div>
 
@@ -452,6 +535,7 @@ export default function Generos() {
                                         placeholder="Breve descripción de las características del género..."
                                         value={formData.descripcion}
                                         onChange={handleChange}
+                                        disabled={saving}
                                     ></textarea>
                                 </div>
                             </div>
@@ -461,12 +545,26 @@ export default function Generos() {
                                     type="button"
                                     className="btn btn-secondary"
                                     data-bs-dismiss="modal"
+                                    disabled={saving}
                                 >
                                     Cancelar
                                 </button>
-                                <button type="submit" className="btn btn-primary d-flex align-items-center gap-1">
-                                    <i className="bi bi-save me-1"></i>
-                                    {editingId ? "Actualizar Género" : "Guardar Género"}
+                                <button
+                                    type="submit"
+                                    className="btn btn-primary d-flex align-items-center gap-1"
+                                    disabled={saving}
+                                >
+                                    {saving ? (
+                                        <>
+                                            <span className="spinner-border spinner-border-sm"></span>
+                                            Guardando...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <i className="bi bi-save me-1"></i>
+                                            {editingId ? "Actualizar Género" : "Guardar Género"}
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </form>
