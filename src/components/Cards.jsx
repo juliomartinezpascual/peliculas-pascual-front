@@ -1,4 +1,6 @@
 import Card from "./Card"
+import img2 from "../assets/images/2.webp"
+import img3 from "../assets/images/3.webp"
 
 function Cards() {
     return (
@@ -10,8 +12,8 @@ function Cards() {
           <Card />
           <div className="col">
             <div className="card">
-              <a href="https://cuevana3l.pro/pelicula/untold-mr-t-i-pity-the-fool" target="_blank">
-                <img src="/src/assets/images/2.webp" className="card-img-top" alt="..." />
+              <a href="https://cuevana3l.pro/pelicula/untold-mr-t-i-pity-the-fool" target="_blank" rel="noreferrer">
+                <img src={img2} className="card-img-top" alt="..." />
               </a>
               <div className="card-body">
                 <h5 className="card-title">Untold Mr. T: I Pity the Fool</h5>
@@ -21,7 +23,7 @@ function Cards() {
           </div>
           <div className="col">
             <div className="card">
-              <img src="/src/assets/images/3.webp" className="card-img-top" alt="..." />
+              <img src={img3} className="card-img-top" alt="..." />
 
                 <div className="card-body">
                   <h5 className="card-title">Moana II</h5>
