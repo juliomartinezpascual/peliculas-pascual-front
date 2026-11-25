@@ -6,6 +6,8 @@ import {
     cambiarEstadoGenero,
     eliminarGenero
 } from "../services/generosService";
+import { useAuth } from "../context/AuthContext";
+import { API_BASE } from "../services/api";
 
 const FORM_INITIAL_STATE = {
     nombre: "",
@@ -37,6 +39,13 @@ function closeGeneroModal() {
 }
 
 export default function Generos() {
+    const {
+        usuario,
+        canCreateGenero,
+        canUpdateGenero,
+        canToggleGenero,
+        canDeleteGenero
+    } = useAuth();
     const [generos, setGeneros] = useState([]);
     const [loading, setLoading] = useState(true);
     const [loadError, setLoadError] = useState("");
@@ -47,6 +56,7 @@ export default function Generos() {
     const [actionId, setActionId] = useState(null);
     const [filtroTexto, setFiltroTexto] = useState("");
     const [filtroEstado, setFiltroEstado] = useState("Todos");
+    const canManageRow = canUpdateGenero || canToggleGenero || canDeleteGenero;
 
     async function cargarGeneros() {
         setLoading(true);
@@ -142,6 +152,10 @@ export default function Generos() {
 
         try {
             if (editingId) {
+                if (!canUpdateGenero) {
+                    setError("No tienes permiso para actualizar géneros (se requiere admin).");
+                    return;
+                }
                 const actualizado = await actualizarGenero(editingId, payload);
                 if (actualizado?._id) {
                     setGeneros((prev) =>
@@ -151,6 +165,10 @@ export default function Generos() {
                     await cargarGeneros();
                 }
             } else {
+                if (!canCreateGenero) {
+                    setError("No tienes permiso para crear géneros.");
+                    return;
+                }
                 const creado = await crearGenero(payload);
                 if (creado?._id) {
                     setGeneros((prev) => [...prev, creado]);
@@ -170,6 +188,10 @@ export default function Generos() {
     };
 
     const handleToggleEstado = async (genero) => {
+        if (!canToggleGenero) {
+            setLoadError("No tienes permiso para cambiar el estado (se requiere admin).");
+            return;
+        }
         setActionId(genero._id);
         try {
             const actualizado = await cambiarEstadoGenero(genero._id, !genero.estado);
@@ -188,6 +210,10 @@ export default function Generos() {
     };
 
     const handleEliminar = async (genero) => {
+        if (!canDeleteGenero) {
+            setLoadError("No tienes permiso para eliminar géneros (se requiere admin).");
+            return;
+        }
         const confirmar = window.confirm(
             `¿Eliminar el género "${genero.nombre}"? Esta acción no se puede deshacer.`
         );
@@ -195,7 +221,6 @@ export default function Generos() {
 
         setActionId(genero._id);
         try {
-            // API responde 204 sin body — no hay JSON que parsear
             await eliminarGenero(genero._id);
             setGeneros((prev) => prev.filter((g) => g._id !== genero._id));
         } catch (err) {
@@ -228,7 +253,12 @@ export default function Generos() {
                         <i className="bi bi-tags-fill me-2"></i>Módulo de Géneros
                     </h2>
                     <p className="text-muted mb-0">
-                        Administración, registro y edición de géneros cinematográficos para la aplicación.
+                        Administración de géneros.
+                        {usuario?.rol && (
+                            <> Sesión: <strong>{usuario.rol}</strong>
+                                {!canUpdateGenero && " (solo consulta y creación)"}
+                            </>
+                        )}
                     </p>
                 </div>
                 <div className="d-flex gap-2">
@@ -242,15 +272,17 @@ export default function Generos() {
                         <i className={`bi bi-arrow-clockwise ${loading ? "spinner-border spinner-border-sm" : ""}`}></i>
                         Recargar
                     </button>
-                    <button
-                        type="button"
-                        className="btn btn-primary d-flex align-items-center gap-2"
-                        data-bs-toggle="modal"
-                        data-bs-target="#generoModal"
-                        onClick={handleOpenCreateModal}
-                    >
-                        <i className="bi bi-plus-circle"></i> Nuevo Género
-                    </button>
+                    {canCreateGenero && (
+                        <button
+                            type="button"
+                            className="btn btn-primary d-flex align-items-center gap-2"
+                            data-bs-toggle="modal"
+                            data-bs-target="#generoModal"
+                            onClick={handleOpenCreateModal}
+                        >
+                            <i className="bi bi-plus-circle"></i> Nuevo Género
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -261,7 +293,7 @@ export default function Generos() {
                         <div>
                             <strong>{loadError}</strong>
                             <div className="small mt-1">
-                                Backend: {import.meta.env.VITE_API_URL || "http://localhost:5000"}
+                                Backend: {API_BASE || window.location.origin}
                             </div>
                         </div>
                     </div>
@@ -325,7 +357,9 @@ export default function Generos() {
                                 <th scope="col" style={{ width: "120px" }}>Estado</th>
                                 <th scope="col" style={{ width: "170px" }}>Fecha Creación</th>
                                 <th scope="col" style={{ width: "170px" }}>Fecha Actualización</th>
-                                <th scope="col" className="text-end" style={{ width: "160px" }}>Acciones</th>
+                                {(canManageRow || canCreateGenero) && (
+                                    <th scope="col" className="text-end" style={{ width: "160px" }}>Acciones</th>
+                                )}
                             </tr>
                         </thead>
                         <tbody>
@@ -385,53 +419,65 @@ export default function Generos() {
                                                 <i className="bi bi-clock-history me-1"></i>
                                                 {formatDate(item.fechaActualizacion)}
                                             </td>
-                                            <td className="text-end">
-                                                <div className="btn-group btn-group-sm" role="group">
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-outline-primary"
-                                                        title="Editar Género"
-                                                        data-bs-toggle="modal"
-                                                        data-bs-target="#generoModal"
-                                                        onClick={() => handleOpenEditModal(item)}
-                                                        disabled={busy}
-                                                    >
-                                                        <i className="bi bi-pencil-square"></i>
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className={`btn ${
-                                                            item.estado
-                                                                ? "btn-outline-warning"
-                                                                : "btn-outline-success"
-                                                        }`}
-                                                        title={item.estado ? "Desactivar" : "Activar"}
-                                                        onClick={() => handleToggleEstado(item)}
-                                                        disabled={busy}
-                                                    >
-                                                        {busy ? (
-                                                            <span className="spinner-border spinner-border-sm"></span>
-                                                        ) : (
-                                                            <i
-                                                                className={`bi ${
-                                                                    item.estado
-                                                                        ? "bi-toggle-on"
-                                                                        : "bi-toggle-off"
-                                                                }`}
-                                                            ></i>
-                                                        )}
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-outline-danger"
-                                                        title="Eliminar Género"
-                                                        onClick={() => handleEliminar(item)}
-                                                        disabled={busy}
-                                                    >
-                                                        <i className="bi bi-trash"></i>
-                                                    </button>
-                                                </div>
-                                            </td>
+                                            {(canManageRow || canCreateGenero) && (
+                                                <td className="text-end">
+                                                    {canManageRow ? (
+                                                        <div className="btn-group btn-group-sm" role="group">
+                                                            {canUpdateGenero && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-outline-primary"
+                                                                    title="Editar Género"
+                                                                    data-bs-toggle="modal"
+                                                                    data-bs-target="#generoModal"
+                                                                    onClick={() => handleOpenEditModal(item)}
+                                                                    disabled={busy}
+                                                                >
+                                                                    <i className="bi bi-pencil-square"></i>
+                                                                </button>
+                                                            )}
+                                                            {canToggleGenero && (
+                                                                <button
+                                                                    type="button"
+                                                                    className={`btn ${
+                                                                        item.estado
+                                                                            ? "btn-outline-warning"
+                                                                            : "btn-outline-success"
+                                                                    }`}
+                                                                    title={item.estado ? "Desactivar" : "Activar"}
+                                                                    onClick={() => handleToggleEstado(item)}
+                                                                    disabled={busy}
+                                                                >
+                                                                    {busy ? (
+                                                                        <span className="spinner-border spinner-border-sm"></span>
+                                                                    ) : (
+                                                                        <i
+                                                                            className={`bi ${
+                                                                                item.estado
+                                                                                    ? "bi-toggle-on"
+                                                                                    : "bi-toggle-off"
+                                                                            }`}
+                                                                        ></i>
+                                                                    )}
+                                                                </button>
+                                                            )}
+                                                            {canDeleteGenero && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn-outline-danger"
+                                                                    title="Eliminar Género"
+                                                                    onClick={() => handleEliminar(item)}
+                                                                    disabled={busy}
+                                                                >
+                                                                    <i className="bi bi-trash"></i>
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="small text-muted">Solo lectura/alta</span>
+                                                    )}
+                                                </td>
+                                            )}
                                         </tr>
                                     );
                                 })

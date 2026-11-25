@@ -1,0 +1,9 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# SPA fallback: React Router no genera archivos por ruta
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
